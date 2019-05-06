@@ -1,4 +1,4 @@
-package com.zqr.study.spring.demo;
+package com.zqr.study.spring.demo.service;
 
 
 import com.zqr.study.spring.framework.annotation.ZqrService;

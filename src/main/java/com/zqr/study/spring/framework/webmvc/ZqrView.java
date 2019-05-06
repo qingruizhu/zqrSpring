@@ -50,6 +50,8 @@ public class ZqrView {
         } finally {
             randomFile.close();
         }
+        resp.setCharacterEncoding("utf-8");
+        resp.getWriter().write(sb.toString());
     }
     //处理特殊字符
     public static String makeStringForRegExp(String str) {

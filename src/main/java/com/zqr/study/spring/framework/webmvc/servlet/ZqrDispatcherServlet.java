@@ -33,11 +33,12 @@ public class ZqrDispatcherServlet extends HttpServlet{
         try {
             doDispatch(req, resp);
         }catch (Exception e){
+            e.fillInStackTrace();
             resp.getWriter().write("<font size='25' color='blue'>500"+
                     "Exception</font><br/>Details:<br/>" +
                     Arrays.toString(e.getStackTrace()).replaceAll("\\[|\\]","") .replaceAll("\\s","\r\n") +
                     " <font color='green'><i>Copyright@GupaoEDU</i></font>");
-            e.fillInStackTrace();
+
         }
     }
 
@@ -48,7 +49,7 @@ public class ZqrDispatcherServlet extends HttpServlet{
         //2.获取handlerAdapter
         ZqrHandlerAdapter adapter = getHandlerAdapter(handler);
         //3.调用方法获取返回值
-        ZqrModelAndView    modelAndView = adapter.handler(req,resp,handler);
+        ZqrModelAndView modelAndView = adapter.handler(req,resp,handler);
         //4.真正的输出结果
         processDispatchResult(req,resp,modelAndView);
 

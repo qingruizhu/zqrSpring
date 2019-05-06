@@ -2,6 +2,11 @@ package com.zqr.study.spring.framework.context;
 
 import com.zqr.study.spring.framework.annotation.ZqrAutowired;
 import com.zqr.study.spring.framework.annotation.ZqrController;
+import com.zqr.study.spring.framework.aop.ZqrAopConfig;
+import com.zqr.study.spring.framework.aop.ZqrAopProxy;
+import com.zqr.study.spring.framework.aop.ZqrCglibAopProxy;
+import com.zqr.study.spring.framework.aop.ZqrJdkDynamicAopProxy;
+import com.zqr.study.spring.framework.aop.support.ZqrAdvicedSupport;
 import com.zqr.study.spring.framework.beans.ZqrBeanWrapper;
 import com.zqr.study.spring.framework.beans.config.ZqrBeanDefinition;
 import com.zqr.study.spring.framework.beans.config.ZqrBeanPostProcessor;
@@ -23,11 +28,11 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 public class ZqrApplicationContext extends ZqrDefaultListableBeanFactory implements ZqrBeanFactory {
 
-    private String [] configLocations;
+    private String[] configLocations;
     private ZqrBeanDefinitionReader reader;
 
     //单例的IOC容器缓存
-    private Map<String,Object> singletonBeanCacheMap = new ConcurrentHashMap<String, Object>();
+    private Map<String, Object> singletonBeanCacheMap = new ConcurrentHashMap<String, Object>();
     //通用的IOC容器:存储所有的被代理过的对象
     private Map<String, ZqrBeanWrapper> beanWrapperMap = new ConcurrentHashMap<String, ZqrBeanWrapper>();
 
@@ -54,22 +59,22 @@ public class ZqrApplicationContext extends ZqrDefaultListableBeanFactory impleme
         System.out.println("hahahahaah init over !!!");
     }
 
-    private void doAutoWired() throws Exception{
+    private void doAutoWired() throws Exception {
         Set<Map.Entry<String, ZqrBeanDefinition>> entries = super.beanDefinitionMap.entrySet();
-        for (Map.Entry<String,ZqrBeanDefinition> entry: entries) {
+        for (Map.Entry<String, ZqrBeanDefinition> entry : entries) {
             ZqrBeanDefinition definition = entry.getValue();
-            if (!definition.isLazyInit()){
+            if (!definition.isLazyInit()) {
                 getBean(entry.getKey());
             }
         }
     }
 
-    private void doRegisterBeanDefinition(List<ZqrBeanDefinition> beanDefinitions) throws Exception{
-        for (ZqrBeanDefinition beanDefinition: beanDefinitions) {
-            if (super.beanDefinitionMap.containsKey(beanDefinition.getFactoryBeanName())){
-                throw new Exception("The "+beanDefinition.getFactoryBeanName()+" is exists!!!");
+    private void doRegisterBeanDefinition(List<ZqrBeanDefinition> beanDefinitions) throws Exception {
+        for (ZqrBeanDefinition beanDefinition : beanDefinitions) {
+            if (super.beanDefinitionMap.containsKey(beanDefinition.getFactoryBeanName())) {
+                throw new Exception("The " + beanDefinition.getFactoryBeanName() + " is exists!!!");
             }
-            super.beanDefinitionMap.put(beanDefinition.getFactoryBeanName(),beanDefinition);
+            super.beanDefinitionMap.put(beanDefinition.getFactoryBeanName(), beanDefinition);
         }
     }
 
@@ -79,29 +84,29 @@ public class ZqrApplicationContext extends ZqrDefaultListableBeanFactory impleme
     //装饰器模式:
     //1、保留原来的 OOP 关系
     //2、我需要对它进行扩展，增强(为了以后 AOP 打基础)
-    public Object getBean(String beanName){
+    public Object getBean(String beanName) {
         ZqrBeanDefinition definition = this.beanDefinitionMap.get(beanName);
         try {
             //bean实例化，并放入单例容器中
             Object instance = instantiateBean(definition);
-            if (null == instance){
+            if (null == instance) {
                 return null;
             }
             //生成通知事件
             ZqrBeanPostProcessor beanPostProcessor = new ZqrBeanPostProcessor();
             //通知事件，实例初始化之前调用一次
-            beanPostProcessor.postProcessBeforeInitialization(instance,beanName);
+            beanPostProcessor.postProcessBeforeInitialization(instance, beanName);
             //beanWrapper放入wrapper容器中
             ZqrBeanWrapper zqrBeanWrapper = new ZqrBeanWrapper(instance);
-            this.beanWrapperMap.put(beanName,zqrBeanWrapper);
-            System.out.println("BeanWrapperIOC put "+beanName+" success !");
+            this.beanWrapperMap.put(beanName, zqrBeanWrapper);
+            System.out.println("BeanWrapperIOC put " + beanName + " success !");
             //通知事件，实例话之后调用一次
-            beanPostProcessor.postProcessAfterInitialization(instance,beanName);
+            beanPostProcessor.postProcessAfterInitialization(instance, beanName);
             //属性注入
             populateBean(instance);
             //从通用的容器中获取，留取可操作空间
             return this.beanWrapperMap.get(beanName).getWrappedInstance();
-        }catch (Exception e){
+        } catch (Exception e) {
             //e.fillInStackTrace();
             return null;
         }
@@ -112,17 +117,17 @@ public class ZqrApplicationContext extends ZqrDefaultListableBeanFactory impleme
         Class<?> clzz = instance.getClass();
         if (!(clzz.isAnnotationPresent(ZqrAutowired.class) || clzz.isAnnotationPresent(ZqrController.class))) return;
         Field[] fields = clzz.getDeclaredFields();
-        for (Field field: fields) {
-            if (field.isAnnotationPresent(ZqrAutowired.class)){
+        for (Field field : fields) {
+            if (field.isAnnotationPresent(ZqrAutowired.class)) {
                 ZqrAutowired autowired = field.getAnnotation(ZqrAutowired.class);
                 String autowiredBeanName = autowired.value().trim();
-                if ("".equals(autowiredBeanName)){
+                if ("".equals(autowiredBeanName)) {
                     autowiredBeanName = field.getType().getName();
                 }
                 //属性强行访问
                 field.setAccessible(true);
                 try {
-                    field.set(instance,this.beanWrapperMap.get(autowiredBeanName).getWrappedInstance());
+                    field.set(instance, this.beanWrapperMap.get(autowiredBeanName).getWrappedInstance());
                 } catch (IllegalAccessException e) {
                     e.printStackTrace();
                 }
@@ -133,33 +138,59 @@ public class ZqrApplicationContext extends ZqrDefaultListableBeanFactory impleme
     private Object instantiateBean(ZqrBeanDefinition definition) {
         Object instance = null;
         try {
-            if (this.singletonBeanCacheMap.containsKey(definition.getFactoryBeanName())){
+            if (this.singletonBeanCacheMap.containsKey(definition.getFactoryBeanName())) {
                 instance = this.singletonBeanCacheMap.get(definition.getFactoryBeanName());
-            }else{
+            } else {
                 Class<?> clzz = Class.forName(definition.getBeanClassName());
                 instance = clzz.newInstance();
-                singletonBeanCacheMap.put(definition.getFactoryBeanName(),instance);
-                System.out.println("SingletonIOC put "+definition.getFactoryBeanName()+" success !");
+                ZqrAdvicedSupport advicedSupport = instantionAopConfig(definition);
+                advicedSupport.setTarget(instance);
+                advicedSupport.setTargetClass(clzz);
+                if (advicedSupport.pointCutMatch()) {
+                    instance = createProxy(advicedSupport).getProxy();
+                }
+                singletonBeanCacheMap.put(definition.getFactoryBeanName(), instance);
+                System.out.println("SingletonIOC put " + definition.getFactoryBeanName() + " success !");
             }
-        }catch (Exception e){
+        } catch (Exception e) {
             e.fillInStackTrace();
         }
         return instance;
     }
 
-    public Object getBean(Class<?> beanClass){
+    private ZqrAopProxy createProxy(ZqrAdvicedSupport advicedSupport) {
+        Class targetClass = advicedSupport.getTargetClass();
+        if (targetClass.getInterfaces().length > 0) {
+            return new ZqrJdkDynamicAopProxy(advicedSupport);
+        }
+        return new ZqrCglibAopProxy(advicedSupport);
+    }
+    private ZqrAdvicedSupport instantionAopConfig(ZqrBeanDefinition beanDefinition) throws Exception{
+        ZqrAopConfig aopConfig = new ZqrAopConfig();
+        aopConfig.setPointCut(reader.getConfig().getProperty("pointCut"));
+        aopConfig.setAspectClass(reader.getConfig().getProperty("aspectClass"));
+        aopConfig.setAspectBefore(reader.getConfig().getProperty("aspectBefore"));
+        aopConfig.setAspectAfter(reader.getConfig().getProperty("aspectAfter"));
+        aopConfig.setAspectAfterThrow(reader.getConfig().getProperty("aspectAfterThrow"));
+        aopConfig.setAspectAfterThrowingName(reader.getConfig().getProperty("aspectAfterThrowingName"));
+        return new ZqrAdvicedSupport(aopConfig);
+    }
+
+    public Object getBean(Class<?> beanClass) {
         return getBean(beanClass.getName());
     }
 
-    public String[] getBeanDefinitionNames(){
+    public String[] getBeanDefinitionNames() {
         Set<String> beanNames = this.beanDefinitionMap.keySet();
         String[] beanNameArry = beanNames.toArray(new String[this.beanDefinitionMap.size()]);
         return beanNameArry;
     }
-    public int getBeanDefinitionCount(){
+
+    public int getBeanDefinitionCount() {
         return this.beanDefinitionMap.size();
     }
-    public Properties getConfig(){
+
+    public Properties getConfig() {
         return reader.getConfig();
     }
 
